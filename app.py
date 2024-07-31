@@ -1,20 +1,98 @@
 import streamlit as st
 from dotenv import load_dotenv
 from pathlib import Path
-from langchain.vectorstores.cassandra import Cassandra
+# from langchain.vectorstores.cassandra import Cassandra
+from langchain_community.vectorstores import FAISS
 from langchain.indexes.vectorstore import VectorStoreIndexWrapper
-from langchain_openai import OpenAI
-from langchain_openai import OpenAIEmbeddings
-from langchain.text_splitter import CharacterTextSplitter
-import cassio
+# from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader
+import google.generativeai as genai
 from PyPDF2 import PdfReader
+from huggingface_hub import login
+# from langchain_openai import OpenAI
+# from langchain_openai import OpenAIEmbeddings
+import cassio
 import os
 import time
-import gdown
+from langchain.llms.base import LLM
+from typing import Any, List, Optional, Dict
+from pydantic import Field
+# import gdown
+
+class GeminiLLM(LLM):
+    model_name: str = Field(..., description="gemini-1.5-flash")
+    model: Any = Field(None, description="The GenerativeModel instance")
+    
+    def __init__(self, model_name: str):
+        super().__init__()
+        self.model_name = model_name
+        self.model = genai.GenerativeModel(model_name=model_name)
+    
+    def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
+        response = self.model.generate_content(prompt)
+        return response.text
+    
+    @property
+    def _llm_type(self) -> str:
+        return "gemini"
+
+    @property
+    def _identifying_params(self) -> Dict[str, Any]:
+        return {"model_name": self.model_name}
 
 load_dotenv(Path(".env"))
 
-st.set_page_config(page_title="Chat with Shrirang", layout="wide")
+def generate_rag_prompt(query, context):
+    # escaped = context.replace("'","").replace('"',"").replace("\n"," ")
+    prompt=("""
+    You are an AI-powered virtual assistant representing Shrirang Sapate, a BS Data Science and Programming student at IIT Madras.\
+    You have access to detailed information about Shrirang's academic background, professional experiences, technical skills,\
+    projects, and personal interests. Your primary role is to answer any questions about Shrirang in a clear, concise, and professional\
+    manner. Ensure that your responses are up-to-date and accurately reflect Shrirang's achievements and capabilities.\
+    Respond to queries as if you are Shrirang speaking in the first person.\
+    Key points to include in your responses:
+
+        - Academic background and coursework
+        - Technical skills and proficiencies
+        - Professional experiences and internships
+        - Projects and notable achievements
+        - Extracurricular activities and hobbies
+        - Personal interests and goals
+        - Always maintain a polite and professional tone, and provide comprehensive and accurate information.
+
+    Key guidelines:
+
+        1. Maintain a professional and friendly tone at all times.
+        2. Provide concise, relevant answers to questions about Shrirang's professional background.
+        3. If asked about personal information beyond what's typically included in a resume, politely decline to answer\
+           and redirect the conversation to professional topics or ask them to conact Shrirang at official.shriraang@gmail.com .
+        4. Be prepared to elaborate on any aspect of Shrirang's professional experience when asked.
+        5. If you're uncertain about a specific detail, say so rather than providing potentially inaccurate information.
+        6. Offer to provide more details or clarification if your initial response doesn't fully address the query.
+        7. Be able to summarize Shrirang's key qualifications and experiences succinctly when asked.
+        8. If asked about skills or experiences not listed in your knowledge base, politely state that you don't have that information.
+        9. Maintain consistency in all your responses about Shrirang's background.
+        10. Be able to tailor responses to highlight relevant experiences for specific job roles or industries when asked.
+
+    Remember, your purpose is to represent Shrirang's professional qualifications effectively and help potential employers or connections learn more about Shrirang's career and capabilities.
+            
+            QUESTION: '{query}'
+            CONTEXT: '{context}'
+
+            Response: 
+""").format(query=query,context=context)
+    return prompt
+
+def generate_answer(prompt):
+    genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+    login(token="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")
+    llm = genai.GenerativeModel(model_name='gemini-1.5-flash')
+    answer = llm.generate_content(prompt)
+    return answer.text
+
+st.set_page_config(page_title="Chat with Shrirang", layout="wide", )
 st.title("Chat with Shrirang..!!")
 
 pdfreader = PdfReader("All About Shrirang.pdf")
@@ -23,8 +101,8 @@ pdfreader = PdfReader("All About Shrirang.pdf")
 if "pdf_processed" not in st.session_state:
     st.session_state.pdf_processed = False
 
-if "astra_vector_index" not in st.session_state:
-    st.session_state.astra_vector_index = None
+if "faiss_vector_index" not in st.session_state:
+    st.session_state.faiss_vector_index = None
 
 with st.spinner("Loading"):
     if pdfreader:
@@ -35,27 +113,27 @@ with st.spinner("Loading"):
                 raw_text += content
         
         if not st.session_state.pdf_processed:
-            cassio.init(token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"), database_id=os.getenv("ASTRA_DB_ID"))
-            llm = OpenAI(openai_api_key=os.getenv("OPENAI_API_KEY"))
-            embedding = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
-            astra_vector_store = Cassandra(
-                    embedding=embedding,
-                    table_name="resume_chatbot_finalv1",
-                    session=None,  
-                    keyspace=None,
-                )
+            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+            login(token="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")
+            llm=genai.GenerativeModel(model_name='gemini-1.5-flash')
 
-            text_splitter = CharacterTextSplitter(
-                separator="\n",
+            embedding_function = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
+            faiss_vector_store = FAISS.from_texts([raw_text], embedding_function)
+            # result = faiss_vector_store.similarity_search("who is Shrirang",k=3)
+            # print("Result1:", result[2].page_content)
+
+            text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=800,
                 chunk_overlap=200,
-                length_function=len,
             )
-            texts = text_splitter.split_text(raw_text)
-            astra_vector_store.add_texts(texts[:50])
 
-            st.session_state.astra_vector_index = VectorStoreIndexWrapper(vectorstore=astra_vector_store)
-            st.session_state.pdf_processed = True
+            texts = text_splitter.split_text(raw_text)
+            faiss_vector_store.add_texts(texts[:50])
+
+            # st.session_state.faiss_vector_index = VectorStoreIndexWrapper(vectorestore=faiss_vector_store)
+            st.session_state.faiss_vector_index = VectorStoreIndexWrapper(vectorstore=faiss_vector_store)
+
+            st.session_state.pdf_processed =True
 
 st.sidebar.markdown("## **Welcome to Chat with Shrirang**")
 st.sidebar.markdown('##### Shrirang is currently a student at IIT Madras')
@@ -170,8 +248,11 @@ if st.session_state.btn_selected:
 if st.session_state.prePrompt_selected and prePrompt is not None:
     
     query_text = prePrompt.strip() 
-    if st.session_state.astra_vector_index is not None:
-        answer = st.session_state.astra_vector_index.query(query_text, llm=OpenAI(openai_api_key=os.getenv("OPENAI_API_KEY"))).strip()
+    gemini_llm = GeminiLLM(model_name='gemini-1.5-flash')
+    if st.session_state.faiss_vector_index is not None:
+        context = raw_text
+        prompt = generate_rag_prompt(query=query_text,context=context)
+        answer = generate_answer(prompt)
         typing_speed = 0.02
         if "context" or "no" in answer:
             with st.chat_message("assistant"):
@@ -181,60 +262,7 @@ if st.session_state.prePrompt_selected and prePrompt is not None:
                 st.write_stream(typing_animation(answer,typing_speed))
                 
         st.session_state.messages.append({"role": "assistant", "content": answer})
-        # button_x= st.button('#### X',on_click=btn_callback)
 
-# if "prePrompt_buttons_container" not in st.session_state:
-#     st.session_state.prePrompt_buttons_container = st.container()
-
-# with st.session_state.prePrompt_buttons_container:
-#     prePrompt = None
-#     col1, col2,col3, col4=st.columns(4)
-#     with col1:
-#         if st.button('Who is Shrirang',type='secondary'):
-#             st.session_state.prePrompt_buttons_container.empty()
-#             prePrompt = 'Who is Shrirang'
-#             st.session_state.prePrompt_selected =True
-#     with col2:
-#         if st.button('What education Shrirang have completed?'):
-#             st.session_state.prePrompt_buttons_container.empty()
-#             prePrompt='What education Shrirang have completed?'
-#             st.session_state.prePrompt_selected =True
-#     with col3:
-#         if st.button('Why should I hire Shrirang for AI role?'):
-#             st.session_state.prePrompt_buttons_container.empty()
-#             prePrompt='Why should I hire Shrirang for AI role?'
-#             st.session_state.prePrompt_selected =True
-#     with col4:
-#         if st.button('Why should I hire Shrirang for AI role???'):
-#             st.session_state.prePrompt_buttons_container.empty()
-#             prePrompt='Why should I hire Shrirang for AI role?'
-#             st.session_state.prePrompt_selected =True
-
-# print(prePrompt)
-
-
-
-# if st.session_state.prePrompt_selected: 
-#     st.session_state.prePrompt_selected = False   
-#     query_text = prePrompt.strip() 
-#     if st.session_state.astra_vector_index is not None:
-#         answer = st.session_state.astra_vector_index.query(query_text, llm=OpenAI(openai_api_key=os.getenv("OPENAI_API_KEY"))).strip()
-#         typing_speed = 0.02
-#         if "context" or "no" in answer:
-#             with st.chat_message("assistant"):
-#                 st.write_stream(typing_animation(answer, typing_speed))
-#         else:        
-#             with st.chat_message("assistant"):
-#                 st.write_stream(typing_animation(answer,typing_speed))
-                
-#         st.session_state.messages.append({"role": "assistant", "content": answer})
-#     else:
-#         st.error("Database not initialized. Kindly reload and upload the PDF first.")   
-    
-        
-# else:
-#     # st.write("You have already selected a Prompt")   
-#     pass
 
 prompt = st.chat_input("Chat with Shrirang...")
  
@@ -245,10 +273,11 @@ if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     query_text = prompt.strip()
-
-    if st.session_state.astra_vector_index is not None:
-        
-        answer = st.session_state.astra_vector_index.query(query_text, llm=OpenAI(openai_api_key=os.getenv("OPENAI_API_KEY"))).strip()
+    gemini_llm = GeminiLLM(model_name='gemini-1.5-flash')
+    if st.session_state.faiss_vector_index is not None:
+        context = raw_text
+        prompt = generate_rag_prompt(query=query_text,context=context)
+        answer = generate_answer(prompt)
         
         typing_speed = 0.02
         if "context" or "no" in answer:
