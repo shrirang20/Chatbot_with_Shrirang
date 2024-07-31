@@ -1,25 +1,19 @@
 import streamlit as st
 from dotenv import load_dotenv
 from pathlib import Path
-# from langchain.vectorstores.cassandra import Cassandra
 from langchain_community.vectorstores import FAISS
 from langchain.indexes.vectorstore import VectorStoreIndexWrapper
-# from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 from huggingface_hub import login
-# from langchain_openai import OpenAI
-# from langchain_openai import OpenAIEmbeddings
-import cassio
 import os
 import time
 from langchain.llms.base import LLM
 from typing import Any, List, Optional, Dict
 from pydantic import Field
-# import gdown
 
 class GeminiLLM(LLM):
     model_name: str = Field(..., description="gemini-1.5-flash")
@@ -45,7 +39,6 @@ class GeminiLLM(LLM):
 load_dotenv(Path(".env"))
 
 def generate_rag_prompt(query, context):
-    # escaped = context.replace("'","").replace('"',"").replace("\n"," ")
     prompt=("""
     You are an AI-powered virtual assistant representing Shrirang Sapate, a BS Data Science and Programming student at IIT Madras.\
     You have access to detailed information about Shrirang's academic background, professional experiences, technical skills,\
@@ -119,8 +112,6 @@ with st.spinner("Loading"):
 
             embedding_function = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
             faiss_vector_store = FAISS.from_texts([raw_text], embedding_function)
-            # result = faiss_vector_store.similarity_search("who is Shrirang",k=3)
-            # print("Result1:", result[2].page_content)
 
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=800,
@@ -130,7 +121,6 @@ with st.spinner("Loading"):
             texts = text_splitter.split_text(raw_text)
             faiss_vector_store.add_texts(texts[:50])
 
-            # st.session_state.faiss_vector_index = VectorStoreIndexWrapper(vectorestore=faiss_vector_store)
             st.session_state.faiss_vector_index = VectorStoreIndexWrapper(vectorstore=faiss_vector_store)
 
             st.session_state.pdf_processed =True
