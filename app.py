@@ -14,6 +14,15 @@ import time
 from langchain.llms.base import LLM
 from typing import Any, List, Optional, Dict
 from pydantic import Field
+from flask import Flask
+from database import db
+from models import Prompt
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///queries_and_answers.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
 
 class GeminiLLM(LLM):
     model_name: str = Field(..., description="gemini-1.5-flash")
@@ -84,6 +93,9 @@ def generate_answer(prompt):
     llm = genai.GenerativeModel(model_name='gemini-1.5-flash')
     answer = llm.generate_content(prompt)
     return answer.text
+
+with app.app_context():
+    db.create_all()
 
 st.set_page_config(page_title="Chat with Shrirang", layout="wide", )
 st.title("Chat with Shrirang..!!")
@@ -243,6 +255,12 @@ if st.session_state.prePrompt_selected and prePrompt is not None:
         context = raw_text
         prompt = generate_rag_prompt(query=query_text,context=context)
         answer = generate_answer(prompt)
+
+        with app.app_context():
+            new_prompt = Prompt(prompt=query_text, answer=answer)
+            db.session.add(new_prompt)
+            db.session.commit()
+            
         typing_speed = 0.02
         if "context" or "no" in answer:
             with st.chat_message("assistant"):
@@ -266,8 +284,17 @@ if prompt:
     gemini_llm = GeminiLLM(model_name='gemini-1.5-flash')
     if st.session_state.faiss_vector_index is not None:
         context = raw_text
+        print("Query:",query_text)
         prompt = generate_rag_prompt(query=query_text,context=context)
         answer = generate_answer(prompt)
+        # print("prompt:",prompt)
+        print("answer:",answer)
+
+        # Save the interaction to the database
+        with app.app_context():
+            new_prompt = Prompt(prompt=query_text, answer=answer)
+            db.session.add(new_prompt)
+            db.session.commit()
         
         typing_speed = 0.02
         if "context" or "no" in answer:
@@ -278,5 +305,8 @@ if prompt:
                 st.write_stream(typing_animation(answer,typing_speed))
         
         st.session_state.messages.append({"role": "assistant", "content": answer})
+        
+        # st.experimental_rerun()
+
     else:
         st.error("Database not initialized. Kindly reload and upload the PDF first.")
