@@ -118,7 +118,7 @@ with st.spinner("Loading"):
                 raw_text += content
         
         if not st.session_state.pdf_processed:
-            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
             login(token="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")
             llm=genai.GenerativeModel(model_name='gemini-1.5-flash')
 
