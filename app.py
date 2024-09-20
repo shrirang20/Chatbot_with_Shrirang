@@ -31,7 +31,12 @@ class GeminiLLM(LLM):
     def __init__(self, model_name: str):
         # super().__init__()
         self.model_name = model_name
-        self.model = genai.GenerativeModel(model_name=model_name)
+        try:
+            # Initialize the model using Generative AI
+            self.model = genai.GenerativeModel(model_name=model_name)
+        except AttributeError as e:
+            # Handle the error explicitly if model initialization fails
+            st.error(f"Model initialization failed: {e}")
     
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
         response = self.model.generate_content(prompt)
