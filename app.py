@@ -13,7 +13,8 @@ import os
 import time
 from langchain.llms.base import LLM
 from typing import Any, List, Optional, Dict
-from pydantic import Field
+from pydantic import Field, BaseModel
+from typing import Any, List, Optional, Dict
 # from flask import Flask
 # from database import db
 # from models import Prompt
@@ -24,20 +25,20 @@ from pydantic import Field
 
 # db.init_app(app)
 
-class GeminiLLM(LLM):
+class GeminiLLM(LLM, BaseModel):
     model_name: str = Field(..., description="model/gemini-1.5-flash")
     model: Any = Field(None, description="The GenerativeModel instance")
     
-    def __init__(self, model_name: str):
-        # super().__init__()
-        self.model_name = model_name
+    class Config:
+        arbitrary_types_allowed = True
+
+    def __init__(self, **data):
+        super().__init__(**data)
         try:
-            # Initialize the model using Generative AI
-            self.model = genai.GenerativeModel(model_name=model_name)
+            self.model = genai.GenerativeModel(model_name=self.model_name)
         except AttributeError as e:
-            # Handle the error explicitly if model initialization fails
             st.error(f"Model initialization failed: {e}")
-    
+
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
         response = self.model.generate_content(prompt)
         return response.text
@@ -49,7 +50,6 @@ class GeminiLLM(LLM):
     @property
     def _identifying_params(self) -> Dict[str, Any]:
         return {"model_name": self.model_name}
-
 load_dotenv(Path(".env"))
 
 def generate_rag_prompt(query, context):
