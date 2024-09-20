@@ -310,3 +310,4 @@ if prompt:
 
     else:
         st.error("Database not initialized. Kindly reload and upload the PDF first.")
+ 
