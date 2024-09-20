@@ -29,7 +29,7 @@ class GeminiLLM(LLM):
     model: Any = Field(None, description="The GenerativeModel instance")
     
     def __init__(self, model_name: str):
-        super().__init__()
+        # super().__init__()
         self.model_name = model_name
         self.model = genai.GenerativeModel(model_name=model_name)
     
