@@ -17,4 +17,4 @@ faiss-cpu
 Flask
 Flask-SQLAlchemy
 huggingface-hub
-FAISS
+
