@@ -15,14 +15,14 @@ from langchain.llms.base import LLM
 from typing import Any, List, Optional, Dict
 from pydantic import Field
 from flask import Flask
-from database import db
-from models import Prompt
+# from database import db
+# from models import Prompt
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///queries_and_answers.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# app = Flask(__name__)
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///queries_and_answers.db'
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db.init_app(app)
+# db.init_app(app)
 
 class GeminiLLM(LLM):
     model_name: str = Field(..., description="gemini-1.5-flash")
@@ -94,8 +94,8 @@ def generate_answer(prompt):
     answer = llm.generate_content(prompt)
     return answer.text
 
-with app.app_context():
-    db.create_all()
+# with app.app_context():
+#     db.create_all()
 
 st.set_page_config(page_title="Chat with Shrirang", layout="wide", )
 st.title("Chat with Shrirang..!!")
@@ -256,10 +256,10 @@ if st.session_state.prePrompt_selected and prePrompt is not None:
         prompt = generate_rag_prompt(query=query_text,context=context)
         answer = generate_answer(prompt)
 
-        with app.app_context():
-            new_prompt = Prompt(prompt=query_text, answer=answer)
-            db.session.add(new_prompt)
-            db.session.commit()
+        # with app.app_context():
+        #     new_prompt = Prompt(prompt=query_text, answer=answer)
+        #     db.session.add(new_prompt)
+        #     db.session.commit()
             
         typing_speed = 0.02
         if "context" or "no" in answer:
@@ -291,10 +291,10 @@ if prompt:
         print("answer:",answer)
 
         # Save the interaction to the database
-        with app.app_context():
-            new_prompt = Prompt(prompt=query_text, answer=answer)
-            db.session.add(new_prompt)
-            db.session.commit()
+        # with app.app_context():
+        #     new_prompt = Prompt(prompt=query_text, answer=answer)
+        #     db.session.add(new_prompt)
+        #     db.session.commit()
         
         typing_speed = 0.02
         if "context" or "no" in answer:
