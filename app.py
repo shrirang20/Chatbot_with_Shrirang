@@ -26,7 +26,7 @@ from typing import Any, List, Optional, Dict
 # db.init_app(app)
 
 class GeminiLLM(LLM, BaseModel):
-    model_name: str = Field(default="gemini-1.5-flash", description="The name of the Gemini model")
+    model_name: str = Field(default="gemini-1.5-flash-8b", description="The name of the Gemini model")
     model: Optional[Any] = Field(None, description="The GenerativeModel instance")
 
     def __init__(self, model_name: str, **data):
@@ -93,7 +93,7 @@ def generate_rag_prompt(query, context):
 def generate_answer(prompt):
     genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
     login(token="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")
-    llm = genai.GenerativeModel(model_name='gemini-1.5-flash')
+    llm = genai.GenerativeModel(model_name='gemini-1.5-flash-8b')
     answer = llm.generate_content(prompt)
     return answer.text
 
@@ -123,7 +123,7 @@ with st.spinner("Loading"):
         if not st.session_state.pdf_processed:
             genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
             login(token="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")
-            llm=genai.GenerativeModel(model_name='gemini-1.5-flash')
+            llm=genai.GenerativeModel(model_name='gemini-1.5-flash-8b')
 
             embedding_function = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
             faiss_vector_store = FAISS.from_texts([raw_text], embedding_function)
@@ -253,7 +253,7 @@ if st.session_state.btn_selected:
 if st.session_state.prePrompt_selected and prePrompt is not None:
     
     query_text = prePrompt.strip() 
-    gemini_llm = GeminiLLM(model_name='gemini-1.5-flash')
+    gemini_llm = GeminiLLM(model_name='gemini-1.5-flash-8b')
     if st.session_state.faiss_vector_index is not None:
         context = raw_text
         prompt = generate_rag_prompt(query=query_text,context=context)
@@ -284,7 +284,7 @@ if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     query_text = prompt.strip()
-    gemini_llm = GeminiLLM(model_name='gemini-1.5-flash')
+    gemini_llm = GeminiLLM(model_name='gemini-1.5-flash-8b')
     if st.session_state.faiss_vector_index is not None:
         context = raw_text
         print("Query:",query_text)
