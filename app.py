@@ -26,20 +26,17 @@ from typing import Any, List, Optional, Dict
 # db.init_app(app)
 
 class GeminiLLM(LLM, BaseModel):
-    model_name: str = Field(..., description="gemini-1.5-flash")
-    model: Any = Field(None, description="The GenerativeModel instance")
+    model_name: str = Field(default="gemini-1.5-flash", description="The name of the Gemini model")
+    model: Optional[Any] = Field(None, description="The GenerativeModel instance")
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        try:
-            self.model = genai.GenerativeModel(model_name=self.model_name)
-        except AttributeError as e:
-            st.error(f"Model initialization failed: {e}")
+    def __init__(self, model_name: str, **data):
+        super().__init__(model_name=model_name, **data)
+        self.model = genai.GenerativeModel(model_name=self.model_name)
 
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
         response = self.model.generate_content(prompt)
         return response.text
-    
+
     @property
     def _llm_type(self) -> str:
         return "gemini"
@@ -47,6 +44,7 @@ class GeminiLLM(LLM, BaseModel):
     @property
     def _identifying_params(self) -> Dict[str, Any]:
         return {"model_name": self.model_name}
+    
 load_dotenv(Path(".env"))
 
 
