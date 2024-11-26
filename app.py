@@ -28,9 +28,6 @@ from typing import Any, List, Optional, Dict
 class GeminiLLM(LLM, BaseModel):
     model_name: str = Field(..., description="gemini-1.5-flash")
     model: Any = Field(None, description="The GenerativeModel instance")
-    
-    class Config:
-        arbitrary_types_allowed = True
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -51,6 +48,9 @@ class GeminiLLM(LLM, BaseModel):
     def _identifying_params(self) -> Dict[str, Any]:
         return {"model_name": self.model_name}
 load_dotenv(Path(".env"))
+
+
+
 
 def generate_rag_prompt(query, context):
     prompt=("""
